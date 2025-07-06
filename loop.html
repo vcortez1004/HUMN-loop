@@ -1,80 +1,75 @@
-#!/usr/bin/env python3
-import os
-import sys
-import subprocess
-import argparse
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>HUMN Loop Generator</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 2rem; max-width: 600px; margin: auto; }
+    #logo { max-width: 200px; margin-bottom: 1rem; }
+    .inputs { margin: 1rem 0; }
+    .inputs label { margin: 0 1rem; font-size: 1rem; }
+    #fileInfo { margin-top: 0.5rem; color: #333; font-size: 0.9rem; }
+    #startBtn { margin-top: 1.5rem; }
+    #progress { width: 100%; height: 1rem; background: #eee; margin: 1rem 0; }
+    #bar { height: 100%; width: 0; background: #6c6; transition: width 0.2s; }
+    video { width: 100%; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <!-- Your actual logo URL -->
+  <img id="logo" src="https://static.wixstatic.com/media/57976b_cc636419c6dc45c98c3e9eaf64e0054b~mv2.jpg" alt="HUMN Logo">
 
-COPYRIGHT = "Made with ♥ by HUMN.audio 2025"
+  <h1>HUMN In-Browser Looping</h1>
 
+  <div class="inputs">
+    <label>Hours: <input type="number" id="hours" value="2" min="0" style="width:4rem"></label>
+    <label>Minutes: <input type="number" id="minutes" value="0" min="0" max="59" style="width:4rem"></label>
+  </div>
 
-def loop_video(src: str, hours: int, minutes: int, out: str) -> None:
-    """
-    Loop a short video into a longer one using ffmpeg copy mode.
-    """
-    total_secs = hours * 3600 + minutes * 60
-    if total_secs <= 0:
-        print("Error: Total duration must be greater than zero.")
-        sys.exit(1)
-    ffmpeg_bin = os.path.join(sys._MEIPASS, "ffmpeg.exe") if getattr(sys, 'frozen', False) else "ffmpeg"
-    cmd = [
-        ffmpeg_bin,
-        "-y", "-hide_banner", "-loglevel", "error",
-        "-stream_loop", "-1",
-        "-i", src,
-        "-c", "copy",
-        "-t", str(total_secs),
-        out
-    ]
-    print(f"Running: {' '.join(cmd)}")
-    try:
-        subprocess.run(cmd, check=True)
-        print(f"Done! Looped video saved to: {out}")
-    except subprocess.CalledProcessError as e:
-        print(f"FFmpeg error (code {e.returncode}): {e}")
-        sys.exit(e.returncode)
+  <input type="file" id="filepicker" accept="video/mp4">
+  <div id="fileInfo">No file selected</div>
+  <button id="startBtn" disabled>Generate Loop</button>
 
+  <div id="progress"><div id="bar"></div></div>
+  <video id="player" controls muted loop></video>
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Loop a short MP4 video into a longer clip by remuxing with ffmpeg."
-    )
-    parser.add_argument(
-        "src",
-        help="Path to the source MP4 video to loop"
-    )
-    parser.add_argument(
-        "-H", "--hours",
-        type=int,
-        default=0,
-        help="Hours part of target duration (default: 0)"
-    )
-    parser.add_argument(
-        "-M", "--minutes",
-        type=int,
-        default=0,
-        help="Minutes part of target duration (0-59, default: 0)"
-    )
-    parser.add_argument(
-        "-o", "--output",
-        help="Output filename (default: <base>_looped_<H>h<M>m.mp4)"
-    )
-    return parser.parse_args()
+  <!-- Load the UMD build of ffmpeg.wasm -->
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/umd/ffmpeg.min.js"></script>
+  <script>
+    (async () => {
+      const { createFFmpeg, fetchFile } = window.FFmpeg;
+      const ffmpeg = createFFmpeg({
+        log: true,
+        corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.15/dist/ffmpeg-core.js',
+        wasmPath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.15/dist/ffmpeg-core.wasm'
+      });
 
+      const filepicker = document.getElementById('filepicker');
+      const fileInfo   = document.getElementById('fileInfo');
+      const startBtn   = document.getElementById('startBtn');
+      const bar        = document.getElementById('bar');
+      const player     = document.getElementById('player');
+      const hoursInput = document.getElementById('hours');
+      const minsInput  = document.getElementById('minutes');
+      let inputName = '';
 
-def main():
-    args = parse_args()
-    if not os.path.isfile(args.src):
-        print(f"Error: Source file '{args.src}' not found.")
-        sys.exit(1)
-    # Determine default output name if not provided
-    if args.output:
-        out = args.output
-    else:
-        base = os.path.splitext(os.path.basename(args.src))[0]
-        out = f"{base}_looped_{args.hours}h{args.minutes}m.mp4"
-    loop_video(args.src, args.hours, args.minutes, out)
+      filepicker.addEventListener('change', () => {
+        if (filepicker.files.length) {
+          inputName = filepicker.files[0].name;
+          fileInfo.textContent = `Selected: ${inputName}`;
+          startBtn.disabled = false;
+        } else {
+          fileInfo.textContent = 'No file selected';
+          startBtn.disabled = true;
+        }
+      });
 
+      startBtn.addEventListener('click', async () => {
+        startBtn.disabled = true;
+        bar.style.width = '0%';
 
-if __name__ == "__main__":
-    print(COPYRIGHT)
-    main()
+        const hours = parseInt(hoursInput.value,10)||0;
+        const mins  = parseInt(minsInput.value,10)||0;
+        const totalSecs = hours*3600 + mins*60;
+        if (totalSecs <= 0) {
+          alert('Please enter a
