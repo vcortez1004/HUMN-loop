@@ -16,14 +16,19 @@
   </style>
 </head>
 <body>
-  <!-- Your actual logo URL -->
-  <img id="logo" src="https://static.wixstatic.com/media/57976b_cc636419c6dc45c98c3e9eaf64e0054b~mv2.jpg" alt="HUMN Logo">
+  <img id="logo"
+       src="https://static.wixstatic.com/media/57976b_cc636419c6dc45c98c3e9eaf64e0054b~mv2.jpg"
+       alt="HUMN Logo">
 
   <h1>HUMN In-Browser Looping</h1>
 
   <div class="inputs">
-    <label>Hours: <input type="number" id="hours" value="2" min="0" style="width:4rem"></label>
-    <label>Minutes: <input type="number" id="minutes" value="0" min="0" max="59" style="width:4rem"></label>
+    <label>Hours:
+      <input type="number" id="hours" value="2" min="0" style="width:4rem">
+    </label>
+    <label>Minutes:
+      <input type="number" id="minutes" value="0" min="0" max="59" style="width:4rem">
+    </label>
   </div>
 
   <input type="file" id="filepicker" accept="video/mp4">
@@ -33,43 +38,80 @@
   <div id="progress"><div id="bar"></div></div>
   <video id="player" controls muted loop></video>
 
-  <!-- Load the UMD build of ffmpeg.wasm -->
-  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/umd/ffmpeg.min.js"></script>
-  <script>
-    (async () => {
-      const { createFFmpeg, fetchFile } = window.FFmpeg;
-      const ffmpeg = createFFmpeg({
-        log: true,
-        corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.15/dist/ffmpeg-core.js',
-        wasmPath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.15/dist/ffmpeg-core.wasm'
-      });
+  <script type="module">
+    document.addEventListener('DOMContentLoaded', () => {
+      // Use the real ESM entry point
+      import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/index.js')
+      .then(({ createFFmpeg, fetchFile }) => {
+        const ffmpeg = createFFmpeg({
+          log: true,
+          // point at the UMD core files
+          corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.15/dist/ffmpeg-core.js',
+          wasmPath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.15/dist/ffmpeg-core.wasm'
+        });
 
-      const filepicker = document.getElementById('filepicker');
-      const fileInfo   = document.getElementById('fileInfo');
-      const startBtn   = document.getElementById('startBtn');
-      const bar        = document.getElementById('bar');
-      const player     = document.getElementById('player');
-      const hoursInput = document.getElementById('hours');
-      const minsInput  = document.getElementById('minutes');
-      let inputName = '';
+        const filepicker = document.getElementById('filepicker');
+        const fileInfo   = document.getElementById('fileInfo');
+        const startBtn   = document.getElementById('startBtn');
+        const bar        = document.getElementById('bar');
+        const player     = document.getElementById('player');
+        const hoursInput = document.getElementById('hours');
+        const minsInput  = document.getElementById('minutes');
+        let inputName = '';
 
-      filepicker.addEventListener('change', () => {
-        if (filepicker.files.length) {
-          inputName = filepicker.files[0].name;
-          fileInfo.textContent = `Selected: ${inputName}`;
-          startBtn.disabled = false;
-        } else {
-          fileInfo.textContent = 'No file selected';
+        filepicker.addEventListener('change', () => {
+          if (filepicker.files.length) {
+            inputName = filepicker.files[0].name;
+            fileInfo.textContent = `Selected: ${inputName}`;
+            startBtn.disabled = false;
+          } else {
+            fileInfo.textContent = 'No file selected';
+            startBtn.disabled = true;
+          }
+        });
+
+        startBtn.addEventListener('click', async () => {
           startBtn.disabled = true;
-        }
-      });
+          bar.style.width = '0%';
 
-      startBtn.addEventListener('click', async () => {
-        startBtn.disabled = true;
-        bar.style.width = '0%';
+          const hours = parseInt(hoursInput.value, 10) || 0;
+          const mins  = parseInt(minsInput.value, 10)  || 0;
+          const totalSecs = hours * 3600 + mins * 60;
+          if (totalSecs <= 0) {
+            alert('Please enter a duration greater than zero.');
+            startBtn.disabled = false;
+            return;
+          }
 
-        const hours = parseInt(hoursInput.value,10)||0;
-        const mins  = parseInt(minsInput.value,10)||0;
-        const totalSecs = hours*3600 + mins*60;
-        if (totalSecs <= 0) {
-          alert('Please enter a
+          if (!ffmpeg.isLoaded()) {
+            await ffmpeg.load();
+          }
+
+          ffmpeg.FS('writeFile', inputName, await fetchFile(filepicker.files[0]));
+          ffmpeg.setProgress(({ ratio }) => {
+            bar.style.width = `${Math.min(100, ratio * 100)}%`;
+          });
+
+          await ffmpeg.run(
+            '-stream_loop','-1',
+            '-i', inputName,
+            '-c','copy',
+            '-t', String(totalSecs),
+            'out.mp4'
+          );
+
+          const data = ffmpeg.FS('readFile','out.mp4');
+          const url  = URL.createObjectURL(
+            new Blob([data.buffer], { type:'video/mp4' })
+          );
+          player.src = url;
+          player.play();
+
+          startBtn.disabled = false;
+        });
+      })
+      .catch(err => alert('FFmpeg.wasm load error: ' + err.message));
+    });
+  </script>
+</body>
+</html>
