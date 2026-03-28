@@ -1,0 +1,59 @@
+# robots.txt for humn.audio
+# Updated: 2026-03-28
+
+# ── Allow all major search engines ──────────────────────────────
+User-agent: *
+Allow: /
+
+# Block admin/private paths from indexing
+Disallow: /admin/
+Disallow: /account/
+Disallow: /checkout/
+Disallow: /cart/
+Disallow: /api/
+Disallow: /_wix/
+Disallow: /cdn-cgi/
+
+# ── Google ───────────────────────────────────────────────────────
+User-agent: Googlebot
+Allow: /
+Disallow: /admin/
+Disallow: /account/
+Disallow: /checkout/
+Disallow: /cart/
+
+# Allow Google to index images (important for rich results)
+User-agent: Googlebot-Image
+Allow: /assets/
+Allow: /images/
+
+# ── Bing ─────────────────────────────────────────────────────────
+User-agent: Bingbot
+Allow: /
+
+# ── Pinterest (good for sound healing / wellness niche) ──────────
+User-agent: Pinterest
+Allow: /
+
+# ── Apple ────────────────────────────────────────────────────────
+User-agent: Applebot
+Allow: /
+
+# ── AI crawlers – allow indexing for AI search visibility ─────────
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+# ── Sitemap location ─────────────────────────────────────────────
+Sitemap: https://humn.audio/sitemap.xml
